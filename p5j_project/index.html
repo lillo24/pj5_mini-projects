@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Slow Cover</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+
+    <script src="sketch.js"></script>
+  </head>
+  <style>
+    body{margin:0;display:flex;justify-content:center;align-items:center;
+         height:100vh;background:#001028;font-family:sans-serif;}
+    .earth{
+      width:300px;                /* diametro “pianeta” */
+      height:300px;
+      border-radius:50%;          /* cerchio perfetto */
+      background:url("assets/earth_daymap.jpg") center/cover;
+      animation: spin 8s linear infinite;
+      box-shadow: 0 0 15px rgba(0,0,0,.6);   /* alone leggero */
+    }
+    @keyframes spin{
+      from{ transform:rotate(0deg);   }
+      to  { transform:rotate(360deg); }
+    }
+    /* Luna facoltativa */
+    .moon{
+      position:absolute;
+      width:80px;height:80px;border-radius:50%;
+      background:url("assets/moon.jpg") center/cover;
+      animation: orbit 12s linear infinite;
+    }
+    @keyframes orbit{
+      from{ transform: rotate(0deg) translateX(220px) rotate(0deg); }
+      to  { transform: rotate(360deg) translateX(220px) rotate(-360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="costl" class="earth">
+    <div class="moon"></div>
+  </div>
+</body>
+</html>

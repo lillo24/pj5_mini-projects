@@ -29,9 +29,10 @@ let flashTimer = 0;
 const flashHold = 1.5;      // seconds at full white
 const flashFadeDuration = 0.3; // seconds to fade out
 
-
+// camera
 let cameraMoving = false;
-
+let cameraTimer = 0;
+const cameraHold = 1;
 
 
 
@@ -78,7 +79,7 @@ function setup() {
 
   // Posi­zioni Luna
   moonPosition = createVector(100, -300, -1500);
-  moonTarget   = createVector(150, -100,   -100);
+  moonTarget   = createVector(150, -100,   -150);
   moonTarget2  = createVector(0,  0,  0);
 }
 
@@ -93,7 +94,6 @@ function draw() {
   const dt = deltaTime / 1000;
 
 
-  console.log(moonPosition.x, moonPosition.y, moonPosition.z)
   if (cameraMoving) {
     camAngle += dt * 0.5;   // speed: 0.5 rad/s
 
@@ -128,13 +128,13 @@ function draw() {
   pop();
 
 
-  earthAngle += dt * 0.1;
-  moonAngle  += dt * 2.0;
+  earthAngle += dt * 0.2;
+  moonAngle  += dt * 1.8;
 
   if (earthVisible) {
     push();
       rotateX(-earthAngle);
-      rotateZ(radians(23.5));
+      rotateX(radians(90));
       noStroke();  
       texture(earthTex);
       model(earthGeom);
@@ -305,14 +305,22 @@ function draw() {
       let t = flashTimer - flashHold;
       // linear fade 255→0 over flashFadeDuration
       flashAlpha = max(255 * (1 - t/flashFadeDuration), 0);
+
       if (flashAlpha <= 0) {
-        //cameraMoving  = true; 
         flashActive = false;
         flashAlpha  = 0;
       }
     }
     drawingContext.enable(drawingContext.DEPTH_TEST);
   }
+
+  if (!flashActive && splitMoon && !cameraMoving) {
+    cameraTimer += dt;
+  if (cameraTimer > cameraHold) {
+    cameraMoving = true;
+    console.log('Camera now moving');
+  }
+}
 }
 
 

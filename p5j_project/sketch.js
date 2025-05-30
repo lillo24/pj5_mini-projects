@@ -1,7 +1,10 @@
+let started = false;
+
+
 // Objects
 const stars = [];
 let fragments = [];
-let balloons = [];
+let final_baloons_vector = [];
 
 let earthGeom, moonGeom;
 let earthTex, moonTex;
@@ -67,8 +70,9 @@ let freeMovement = false;
 
 // Extra
 let clickCount = 0;
-
-
+let soundtrack;
+let finalBaloons = false;
+let cleanBackground = false;
 
 
 
@@ -80,6 +84,7 @@ function preload() {
   moonRightTex = loadImage('assets/8k_moon_right.png');
   air_baloon  = loadImage('assets/balloon_texture.jpg');
   basket = loadImage('assets/basket.png');
+  soundtrack = loadSound('assets/soundtrack.mp3');
 }
 
 
@@ -94,11 +99,11 @@ function setup() {
   //canvas.style.border = '4px solid white'; // 4px wide white border
   document.getElementById('costl').style.display = 'none';
 
-
+  frameRate(60);
 
 
   // Set up the canvas
-  createCanvas(800, 600, WEBGL);
+  createCanvas(760, 600, WEBGL);
   pixelDensity(1);           
   perspective(radians(85), width / height, 1, 10000);
   noStroke();
@@ -128,17 +133,68 @@ function setup() {
   moonTarget   = createVector(200, -100,   -100);
   moonTarget2  = createVector(0,  0,  0);
 
-  for (let i = 0; i < 1; i++) {
-    balloons.push({
-      pos: createVector(
-        random(-50, 50),    // x jitter
-        random(-20,  20),   // y jitter
-        -150                // all start at z=-300 behind earth
-      ),
-      moving: false
-    });
+
+  // Solo baloon
+  soloBaloon = {
+    pos: createVector(0, 0, -150),
+    moving: false
+  };
+
+
+
+
+  const N = 25;               // number of balloons
+  const minDist = 50;         // minimum separation
+  const center = createVector(0, 0, 0);
+
+  final_baloons_vector.length = 0;
+
+  while (final_baloons_vector.length < N) {
+    //random radius between 75 and 200
+    let r = random(75, 200);
+
+    // random point on unit sphere:
+    let u = random(-1, 1);
+    let θ = random(0, TWO_PI);
+    // scale out to radius r:
+    let x = r * sqrt(1 - u * u) * cos(θ);
+    let y = r * sqrt(1 - u * u) * sin(θ);
+    let z = r * u;
+    
+    let candidate = p5.Vector.add(center, createVector(x, y, z));
+    
+    // enforce minimum spacing:
+    let tooClose = false;
+    for (let b of final_baloons_vector) {
+      if (p5.Vector.dist(candidate, b.pos) < minDist) {
+        tooClose = true;
+        break;
+      }
+    }
+    
+    if (!tooClose) {
+      final_baloons_vector.push({
+        pos: candidate.copy()
+      });
+    }
   }
 
+
+  soundtrack.play();
+  //music_events
+
+  //Stars rotate
+  soundtrack.addCue(7.8, () => activateEvents());
+  //Rotate Earth
+  soundtrack.addCue(23, () => activateEvents());
+  //Stars collide weird stuff idk
+  soundtrack.addCue(31, () => activateEvents());
+  //Moon closer
+  soundtrack.addCue(36, () => activateEvents());
+  //Hot air baloon
+  soundtrack.addCue(44, () => activateEvents());
+  //Moon collision
+  soundtrack.addCue(53.5, () => activateEvents());
 }
 
 
@@ -148,7 +204,11 @@ function setup() {
 
 
 
-function draw() { 
+function draw() {
+
+  if (!started) return; 
+
+  //console.log(clickCount); 
   const dt = deltaTime / 1000;
 
   if(!freeMovement) {
@@ -157,12 +217,9 @@ function draw() {
           0, 0, -300,
           0, 1, 0);
 
-    introCamZ = max(introCamZ - dt * introCamSpeed, introCamTargetZ);
-    if (introCamZ <= introCamTargetZ) {
-      coolIntroduction = false;
-    }
+    introCamZ = lerp(introCamZ, introCamTargetZ, dt * introCamSpeed/150);
   }else{
-    orbitControl();
+    orbitControl(5,5);
   }
 
 
@@ -240,7 +297,7 @@ function draw() {
 
   if(speedUpEarth){
     earthSpeed = min(earthSpeed + dt * 1.2, 11);
-    //earthAngleY = earthAngleY + dt - 0.1;
+    //earthAngleY = earthAngleY + dt - 0.01;
   }
   earthAngle += dt * earthSpeed;
   moonAngle  += dt * 1.8;
@@ -319,19 +376,29 @@ function draw() {
   
   
 
-  if (balloonArcMoving) {
-    earthSpeed = min(earthSpeed + dt * 0.1, 0.5);
-    balloonPos.lerp(moonTarget, dt * 0.1);
+  if (!finalBaloons) {
+    drawHotAirBalloon(soloBaloon.pos.x, soloBaloon.pos.y, soloBaloon.pos.z, 0.1);
+    if (soloBaloon.moving) {
+      // lerp each one toward the moon’s first stop (moonTarget)
+      soloBaloon.pos.lerp(moonTarget, dt * 0.1);
+    }
+  }else {
+    for (let b of final_baloons_vector) {
+      if (b.moving) {
+        // lerp each one toward the moon’s first stop (moonTarget)
+        b.pos.lerp(moonTarget, dt * 0.1);
+      }
+      // draw it smaller:
+      drawHotAirBalloon(b.pos.x, b.pos.y, b.pos.z, 0.13);
+    }
   }
 
-  for (let b of balloons) {
-    if (b.moving) {
-      // lerp each one toward the moon’s first stop (moonTarget)
-      b.pos.lerp(moonTarget, dt * 0.1);
-    }
-    // draw it smaller:
-    drawHotAirBalloon(b.pos.x, b.pos.y, b.pos.z, 0.1);
+  //Clean up background
+  if (cleanBackground) {
+    background(1);
+    cleanBackground = false;
   }
+
 
 
 
@@ -364,9 +431,9 @@ function draw() {
       // 30 small bits, radius 2–6
       for (let i = 0; i < 100; i++) {
         fragments.push({
-          x: moonPosition.x,
-          y: moonPosition.y + random(-(moonRadius+60), (moonRadius+60)),
-          z: moonPosition.z + random(-(moonRadius+60), (moonRadius+60)),
+          x: 0,         
+          y: random(-(moonRadius+60), (moonRadius+60)),
+          z: random(-(moonRadius+60), (moonRadius+60)),
           r: random(2, 6),
           vx: random(-0.25,0.25),
           vy: random(-0.25,0.25),
@@ -378,9 +445,9 @@ function draw() {
       for (let i = 0; i < medCount; i++) {
         let sign = i < medCount/2 ? +1 : -1;
         fragments.push({
-          x: moonPosition.x + random(35, 45) * sign,
-          y: moonPosition.y + random(-(moonRadius+10), (moonRadius+10)),
-          z: moonPosition.z + random(-(moonRadius+10), (moonRadius+10)),
+          x: random(35, 45) * sign,
+          y: random(-(moonRadius+10), (moonRadius+10)),
+          z: random(-(moonRadius+10), (moonRadius+10)),
           r: random(8, 11),
           vx: random(0,0.5) * sign,
           vy: random(0,0.5) * sign,
@@ -393,9 +460,9 @@ function draw() {
       for (let i = 0; i < largeCount; i++) {
         let sign = i < largeCount/2 ? +1 : -1;
         fragments.push({
-          x: moonPosition.x + random(75, 90) * sign,
-          y: moonPosition.y + random(-(moonRadius+10), (moonRadius+10)),
-          z: moonPosition.z + random(-(moonRadius+10), (moonRadius+10)),
+          x: random(75, 90) * sign,
+          y: random(-(moonRadius+10), (moonRadius+10)),
+          z: random(-(moonRadius+10), (moonRadius+10)),
           r: random(15, 20),
           vx: random(0,1) * sign,
           vy: random(0,1) * sign,
@@ -418,16 +485,9 @@ function draw() {
       rect(-width/2, -height/2, width, height);
     pop();
 
-    camAngle += dt * 0.2;
-
-    // compute a point on the circle around (0,0,0) or your moon center
-    let cx = moonPosition.x + camRadius * cos(camAngle);
-    let cz = moonPosition.z + camRadius * sin(camAngle);
-    let cy = moonPosition.y + camHeight;
-
-    // look back at the moon’s center
-    camera(cx, cy, cz,
-          moonPosition.x, moonPosition.y, moonPosition.z,
+    finalBaloons = true;
+    camera(0, 0, 0,
+          0, 0, -300,
           0, 1, 0);
 
     // hold at 255 for flashHold seconds, then fade over flashFadeDuration
@@ -438,15 +498,14 @@ function draw() {
       flashAlpha = max(255 * (1 - t/flashFadeDuration), 0);
 
       if (flashAlpha <= 0) {
+        drawingContext.enable(drawingContext.DEPTH_TEST);
         flashActive = false;
         flashAlpha  = 0;
       }
     }
-    drawingContext.enable(drawingContext.DEPTH_TEST);
   }
 
   if (!flashActive && splitMoon) {
-    console.log(cameraTimer)
     cameraTimer += dt;
     if (cameraTimer > cameraHold) {
       freeMovement = true;
@@ -518,11 +577,8 @@ function drawHotAirBalloon(x, y, z, scaleFactor = 1) {
 
 
 
-
-
-function mousePressed() {
-  clickCount++;
-
+function activateEvents(){
+  clickCount ++;
   switch (clickCount) {
     case 1:
       starActive = true;
@@ -538,8 +594,8 @@ function mousePressed() {
       animateMoon = true;
       break;
     case 5:
-      //startBalloonArc();
-      balloons.forEach(b => b.moving = true);
+      soloBaloon.moving = true;
+      balloonArcMoving = true;
       break;
     case 6:
       animateMoon2 = true;
@@ -554,3 +610,15 @@ function mousePressed() {
   }
 }
 
+function mousePressed() {
+  if (!started) {
+    document.getElementById('clickHere').style.display = 'none';
+    started = true;
+    userStartAudio();
+    loop();
+  }
+
+  if(freeMovement){
+    cleanBackground = true;
+  }
+}

@@ -1,7 +1,7 @@
 let started = false;
 
 
-// Objects
+// Oggetti
 const stars = [];
 let fragments = [];
 let final_baloons_vector = [];
@@ -12,63 +12,45 @@ let earthRadius = 110, moonRadius = 28;
 let earthVisible = true;
 
 
-// Variables Object Moving
-let splitT = 0;
-let earthAngle = 0, earthAngleY = 0.8; 
+// Variabili per il movimento degli oggetti
+let earthAngle = 0, earthAngleY = 0.8;
 let earthSpeed = 0.25;
 let speedUpEarth = false;
 let slowEarthSpeed = 0.02;
-let splitOffset = 0;
 
 let moonAngle = 0;
 let slowMoonSpeed  = 0.5;
 let animateMoon = false;
 let animateMoon2 = false;
-let moonPosition, moonTarget, moonTarget2, moonSpeed =0;
-let splitMoon = false;
+let moonPosition, moonTarget, moonTarget2, moonSpeed = 0;
+let moonExploded = false;
 
-let starActive = false;   // “should we be spinning the stars?”
-let starDone   = false;   // “have we turned them off again?”
+let squishStars = false;
+let starExplosion   = false;
 let starRotationSpeed = 0.2;
-let slowIntox = 0;
 let deIntox = 0;
 
 
-// Baloon moving
-let balloonArcCenter;
-let balloonArcAngle = 0;
-const balloonArcRadius = 100;
-let balloonArcMoving = false;
-let balloonPos;
-
-
-// flash
-let flashAlpha = 0;
+// Flash
+let flashWhiteTransparency = 0;
 let flashActive = false;
 let flashTimer = 0;
-const flashHold = 1.5;      // seconds at full white
-const flashFadeDuration = 0.3; // seconds to fade out
+const flashDuration = 1.5;      // flash durata
+const flashFadeDuration = 0.3; // secondi per svanire
 
 
-// camera
-let coolIntroduction = true;
+// Telecamera
 let introCamX = 100;
 let introCamY = -100;
 let introCamZ = 400;
 let introCamTargetZ = 140;
-let introCamSpeed = 10; // units per second
-
+let introCamSpeed = 10; // unità al secondo
 
 let cameraTimer = 0;
 const cameraHold = 1;
-
-let camAngle  = 0;
-const camRadius = 400;
-const camHeight = 50;  
-
 let freeMovement = false;
 
-// Extra
+// Variabili extra
 let clickCount = 0;
 let soundtrack;
 let finalBaloons = false;
@@ -90,80 +72,72 @@ function preload() {
 
 
 
-
-
 function setup() {
 
-  // CINEMA LAYOUT
+  // Layout “cinema”
   canvas = document.querySelector('canvas');
-  //canvas.style.border = '4px solid white'; // 4px wide white border
+  //canvas.style.border = '4px solid white'; // bordo bianco di 4px
   document.getElementById('costl').style.display = 'none';
 
   frameRate(60);
 
-
-  // Set up the canvas
+  // Configura il canva
   createCanvas(760, 600, WEBGL);
-  pixelDensity(1);           
+  pixelDensity(1);
   perspective(radians(85), width / height, 1, 10000);
   noStroke();
 
-
-  // Creating stars background
+  // Crea vettore stelle
   for (let i = 0; i < 1000; i++) {
     let R = random(550, 2500);
     let dir = p5.Vector.random3D();
-    let pos = dir.mult(R); 
+    let pos = dir.mult(R);
 
-    // create your star vector
+    // Salva posizione iniziale per ricrearli dopo la collisione
     let star = createVector(pos.x, pos.y, pos.z);
     star.initialPosition = star.copy();
 
     stars.push(star);
   }
 
-
-  // Settinp up planets
+  // Pianeti creazione
   earthGeom = buildGeometry(() => sphere(earthRadius, 30, 30));
   moonGeom  = buildGeometry(() => sphere(moonRadius, 22, 22));
 
 
-  // Future moon positions
+  // Posizioni della Luna
   moonPosition = createVector(100, -300, -1500);
-  moonTarget   = createVector(200, -100,   -100);
-  moonTarget2  = createVector(0,  0,  0);
+  moonTarget   = createVector(200, -100, -100);
+  moonTarget2  = createVector(0, 0, 0);
 
-
-  // Solo baloon
+  // Mongolfiera singolo
   soloBaloon = {
     pos: createVector(0, 0, -150),
     moving: false
   };
 
-
-
-
-  const N = 25;               // number of balloons
-  const minDist = 50;         // minimum separation
+  // Vettore di mongolfiere finali
+  const N = 25;               // numero di palloncini
+  const minDist = 50;         // distanza minima tra loro
   const center = createVector(0, 0, 0);
 
   final_baloons_vector.length = 0;
 
   while (final_baloons_vector.length < N) {
-    //random radius between 75 and 200
+    // raggio casuale tra 75 e 200
     let r = random(75, 200);
 
-    // random point on unit sphere:
+    // punto casuale sulla sfera unitaria:
     let u = random(-1, 1);
     let θ = random(0, TWO_PI);
-    // scale out to radius r:
+    // scala fino al raggio r:
     let x = r * sqrt(1 - u * u) * cos(θ);
     let y = r * sqrt(1 - u * u) * sin(θ);
     let z = r * u;
-    
+
     let candidate = p5.Vector.add(center, createVector(x, y, z));
-    
-    // enforce minimum spacing:
+
+    // controlla la distanza minima:
     let tooClose = false;
     for (let b of final_baloons_vector) {
       if (p5.Vector.dist(candidate, b.pos) < minDist) {
@@ -171,7 +145,7 @@ function setup() {
         break;
       }
     }
-    
+
     if (!tooClose) {
       final_baloons_vector.push({
         pos: candidate.copy()
@@ -180,220 +154,45 @@ function setup() {
   }
 
 
+  // eventi musicali
   soundtrack.play();
-  //music_events
 
-  //Stars rotate
+  // Le stelle ruotano
   soundtrack.addCue(7.8, () => activateEvents());
-  //Rotate Earth
+  // Rotazione della Terra
   soundtrack.addCue(23, () => activateEvents());
-  //Stars collide weird stuff idk
+  // Esplosione delle stelle
   soundtrack.addCue(31, () => activateEvents());
-  //Moon closer
+  // Avvicinamento della Luna
   soundtrack.addCue(36, () => activateEvents());
-  //Hot air baloon
+  // mongolfiera verso la Luna
   soundtrack.addCue(44, () => activateEvents());
-  //Moon collision
+  // Esplosione della Luna
   soundtrack.addCue(53.5, () => activateEvents());
 }
 
 
 
 
-
-
-
-
 function draw() {
 
-  if (!started) return; 
+  if (!started) return;
 
-  //console.log(clickCount); 
   const dt = deltaTime / 1000;
 
-  if(!freeMovement) {
+  // TELECAMERA
+  if (!freeMovement) {
     background(1);
     camera(100, introCamY, introCamZ,
-          0, 0, -300,
-          0, 1, 0);
+           0, 0, -300,
+           0, 1, 0);
 
-    introCamZ = lerp(introCamZ, introCamTargetZ, dt * introCamSpeed/150);
-  }else{
-    orbitControl(5,5);
-  }
-
-
-
-
-  if (freeMovement) {
-
-    stars.length = 0;
-    const NEW_STAR_COUNT = 300;           // far fewer than before
-    for (let i = 0; i < NEW_STAR_COUNT; i++) {
-      let R   = random(550, 2500);
-      let dir = p5.Vector.random3D().mult(R);
-      let star = createVector(dir.x, dir.y, dir.z);
-      star.initialPosition = star.copy();
-      // give each star its own random rotation direction (+1 or -1)
-      star.rotDir = random() < 0.5 ? 1 : -1;
-      stars.push(star);
-    }
-
-    let baseRot = starRotationSpeed * dt;
-    for (let p of stars) {
-      // each star gets its own direction
-      let rot = baseRot * p.rotDir;
-      let c   = cos(rot),
-          s   = sin(rot);
-
-      // rotate Y→Z or whatever axis you like
-      let x = p.y * c - p.z * s;
-      let z = p.y * s + p.z * c;
-
-      // blend back toward their “initial” spot by deIntox factor
-      p.y = lerp(x, p.initialPosition.x, deIntox);
-      p.z = lerp(z, p.initialPosition.z, deIntox);
-    }
-  }else{
-    if (starActive && !starDone){
-      deIntox += dt*0.01;
-    }else if (starDone){
-      if (deIntox < 2) {
-        deIntox += dt*1;
-      }else {
-        deIntox += dt*0.000000001;
-      }
-    }
-
-    if (starActive) {
-      let rot = starRotationSpeed * dt;
-      let c = cos(rot),
-          s = sin(rot);
-
-      for (let i = 0; i < stars.length; i++) {
-        let p = stars[i];
-        // rotate around the Y axis (up):
-        let x = p.y * c - p.z * s;
-        let z = p.y * s + p.z * c;
-        p.y = x * (1-deIntox) + (deIntox)*p.initialPosition.x; // de-intoxicate Y
-        p.z = z * (1-deIntox) + (deIntox)*p.initialPosition.z; // de-intoxicate Z
-      }
-    }
-
-  }
-
-  
-    // stars
-    push();
-      stroke(255);
-      strokeWeight(2);
-      beginShape(POINTS);
-        stars.forEach(s => vertex(s.x, s.y, s.z));
-      endShape();
-    pop();
-
-
-
-
-  if(speedUpEarth){
-    earthSpeed = min(earthSpeed + dt * 1.2, 11);
-    //earthAngleY = earthAngleY + dt - 0.01;
-  }
-  earthAngle += dt * earthSpeed;
-  moonAngle  += dt * 1.8;
-
-
-  if (earthVisible) {
-    push();
-      rotateX(-earthAngle - 2.8);
-      rotateZ(earthAngleY);
-      noStroke();  
-      texture(earthTex);
-      model(earthGeom);
-    pop();
-  }
-
-
-
-
-
-
-
-  /* ------------- LUNA ------------- */
-  // Primo step di avvicinamento
-  if (animateMoon) {
-    moonSpeed = lerp(moonSpeed, 1, (dt *2)*(dt *2));
-    moonPosition.lerp(moonTarget, dt *moonSpeed);
-  }
-
-  // Secondo step + slow-motion
-  if (animateMoon2) {
-    moonPosition.lerp(moonTarget2, dt *  0.4);
-
-    // gradually slow down:
-    earthAngle = lerp(earthAngle, slowEarthSpeed, dt * 1.5);
-    moonAngle  = lerp(moonAngle,  slowMoonSpeed,  dt * 1.5);
-  }
-  
-
-  if (!splitMoon) {
-    push();
-      noStroke();
-      translate(moonPosition.x, moonPosition.y, moonPosition.z);
-      rotateY(moonAngle);
-      texture(moonTex);
-      model(moonGeom);
-    pop();
+    introCamZ = lerp(introCamZ, introCamTargetZ, dt * introCamSpeed / 150);
   } else {
-
-    splitT = min(splitT + dt * 0.02, 0.5);
-    splitOffset = lerp(0, 100, splitT);
-
-    push();
-      texture(moonTex);
-      fragments.forEach(f => {
-
-        f.x += f.vx * dt * 100;
-        f.y += f.vy * dt * 100;
-        f.z += f.vz * dt * 100;
-        // damp velocity so they slow to a stop
-        let damp = 0.98;
-        f.vx *= damp;
-        f.vy *= damp;
-        f.vz *= damp;
-
-        push();
-          translate(f.x, f.y, f.z);
-          sphere(f.r, 6, 6);
-        pop();
-      });
-    pop();
+    orbitControl(5, 5);
   }
 
-  
-
-
-  
-  
-
-  if (!finalBaloons) {
-    drawHotAirBalloon(soloBaloon.pos.x, soloBaloon.pos.y, soloBaloon.pos.z, 0.1);
-    if (soloBaloon.moving) {
-      // lerp each one toward the moon’s first stop (moonTarget)
-      soloBaloon.pos.lerp(moonTarget, dt * 0.1);
-    }
-  }else {
-    for (let b of final_baloons_vector) {
-      if (b.moving) {
-        // lerp each one toward the moon’s first stop (moonTarget)
-        b.pos.lerp(moonTarget, dt * 0.1);
-      }
-      // draw it smaller:
-      drawHotAirBalloon(b.pos.x, b.pos.y, b.pos.z, 0.13);
-    }
-  }
-
-  //Clean up background
+  // Pulisci sfondo se necessario
   if (cleanBackground) {
     background(1);
     cleanBackground = false;
@@ -403,109 +202,201 @@ function draw() {
 
 
 
+  // Stelle movimento
+  if (freeMovement) {
+    // Stelle dopo la collisione
+    stars.length = 0;
+    const NEW_STAR_COUNT = 50;
+    for (let i = 0; i < NEW_STAR_COUNT; i++) {
+      let R   = random(550, 2500);
+      let dir = p5.Vector.random3D().mult(R);
+      let star = createVector(dir.x, dir.y, dir.z);
+      star.initialPosition = star.copy();
 
+      star.rotDir = random() < 0.5 ? 1 : -1;
+      stars.push(star);
+    }
+  } else {
 
+    // Schiaccia stelle
+    if (squishStars) {
+      let rot = starRotationSpeed * dt;
+      let c = cos(rot),
+          s = sin(rot);
 
-
-
-
-
-  if (animateMoon2 && !flashActive && !splitMoon) {
-    // distanza fra i due centri
-    let d_centers = p5.Vector.dist(moonPosition, createVector(0,0,0));
-    // quando i bordi si toccano
-    if (d_centers <= earthRadius + moonRadius && !splitMoon) {
-      flashActive = true;
-      flashAlpha  = 255;
-      flashTimer  = 0;
-
-
-      splitMoon   = true;
-      earthVisible = false;
-      animateMoon2  = false;
-
-
-      // clear out any old fragments
-      fragments = [];
-
-      // 30 small bits, radius 2–6
-      for (let i = 0; i < 100; i++) {
-        fragments.push({
-          x: 0,         
-          y: random(-(moonRadius+60), (moonRadius+60)),
-          z: random(-(moonRadius+60), (moonRadius+60)),
-          r: random(2, 6),
-          vx: random(-0.25,0.25),
-          vy: random(-0.25,0.25),
-          vz: random(-0.25,0.25)
-        });
+      // Boh
+      for (let i = 0; i < stars.length; i++) {
+        let p = stars[i];
+        let x = p.y * c - p.z * s;
+        let z = p.y * s + p.z * c;
+        p.y = x * (1 - deIntox) + deIntox * p.initialPosition.x; // “de-intossica” Y
+        p.z = z * (1 - deIntox) + deIntox * p.initialPosition.z; // “de-intossica” Z
       }
-      // 15 medium bits, radius 8–11, x-offset 10→20
-      let medCount = 18;
-      for (let i = 0; i < medCount; i++) {
-        let sign = i < medCount/2 ? +1 : -1;
-        fragments.push({
-          x: random(35, 45) * sign,
-          y: random(-(moonRadius+10), (moonRadius+10)),
-          z: random(-(moonRadius+10), (moonRadius+10)),
-          r: random(8, 11),
-          vx: random(0,0.5) * sign,
-          vy: random(0,0.5) * sign,
-          vz: random(0,0.5) * sign
-        });
-      }
+    }
 
-      // 5 large bits, radius 12–15, x-offset 20→40
-      let largeCount = 8;
-      for (let i = 0; i < largeCount; i++) {
-        let sign = i < largeCount/2 ? +1 : -1;
-        fragments.push({
-          x: random(75, 90) * sign,
-          y: random(-(moonRadius+10), (moonRadius+10)),
-          z: random(-(moonRadius+10), (moonRadius+10)),
-          r: random(15, 20),
-          vx: random(0,1) * sign,
-          vy: random(0,1) * sign,
-          vz: random(0,1) * sign
-        });
+    // Esplosione stelle
+    if (squishStars && !starExplosion) {
+      // Boh ma lento
+      deIntox += dt * 0.01;
+    } else {
+      if (starExplosion) {
+        if (deIntox < 2) {
+          // Boh ma veloce
+          deIntox += dt * 1;
+        } else {
+          // Boh ma molto lento
+          deIntox += dt * 0.000000001;
+        }
       }
     }
   }
 
-  // se flash attivo, sovrapponi un bianco che svanisce
+  // Disegna stelle
+  push();
+    stroke(255);
+    strokeWeight(2);
+    beginShape(POINTS);
+      stars.forEach(stair => vertex(stair.x, stair.y, stair.z));
+    endShape();
+  pop();
+
+
+
+
+
+
+
+  // Accelerazione della rotazione Terra
+  if (speedUpEarth) {
+    earthSpeed = min(earthSpeed + dt * 1.2, 11);
+  }
+
+  // Normale rotazione
+  earthAngle += dt * earthSpeed;
+
+  // Creazione terra (prima collisione)
+  if (earthVisible) {
+    push();
+      rotateX(-earthAngle - 2.8);
+      rotateZ(earthAngleY);
+      noStroke();
+      texture(earthTex);
+      model(earthGeom);
+    pop();
+  }
+
+
+
+  //Movimenti luna
+  // Primo step di avvicinamento, slow start perchè sennò brutto
+  if (animateMoon) {
+    moonSpeed = lerp(moonSpeed, 1, (dt * 2) * (dt * 2));
+    moonPosition.lerp(moonTarget, dt * moonSpeed);
+  }
+
+  // Collisione con la Terra
+  if (animateMoon2) {
+    moonPosition.lerp(moonTarget2, dt * 0.4);
+
+    // rallenta la rotazione della Terra e della Luna prima della collisione
+    earthAngle = lerp(earthAngle, slowEarthSpeed, dt * 1.5);
+    moonAngle  = lerp(moonAngle,  slowMoonSpeed,  dt * 1.5);
+  }
+
+
+  // Rotazione normale della Luna
+  moonAngle += dt * 1.8;
+
+  // Creazione luna (prima collisione)
+  if (!moonExploded) {
+    push();
+      noStroke();
+      translate(moonPosition.x, moonPosition.y, moonPosition.z);
+      rotateY(moonAngle);
+      texture(moonTex);
+      model(moonGeom);
+    pop();
+  }
+
+
+
+
+
+  // Disegna mongolfiera singola o multiple dopo collisione
+  if (!finalBaloons) {
+    drawHotAirBalloon(soloBaloon.pos.x, soloBaloon.pos.y, soloBaloon.pos.z, 0.1);
+    
+    if (soloBaloon.moving) {
+      soloBaloon.pos.lerp(moonTarget, dt * 0.1);
+    }
+
+  } else {
+    for (let b of final_baloons_vector) {
+      drawHotAirBalloon(b.pos.x, b.pos.y, b.pos.z, 0.13);
+    }
+  }
+
+
+
+
+
+
+  // Esplosione della luna e flash
+  if (animateMoon2 && !flashActive && !moonExploded) {
+
+    // distanza fra i due centri luna e terra
+    let d_centers = p5.Vector.dist(moonPosition, createVector(0, 0, 0));
+
+
+    // quando i bordi si toccano
+    if (d_centers <= earthRadius + moonRadius && !moonExploded) {
+      flashActive = true;
+      flashWhiteTransparency = 255;
+      flashTimer = 0;
+
+      moonExploded = true;
+      earthVisible = false;
+      animateMoon2 = false;
+    }
+  }
+
+  // Se flash si è attivato crea effetivamente il flash nella scena
   if (flashActive) {
-    flashTimer += dt;
-    drawingContext.disable(drawingContext.DEPTH_TEST);
- 
-    // porta a schermo 2D
+    drawingContext.disable(drawingContext.DEPTH_TEST); // 2D
+
+    // Crea flash bianco
     push();
       resetMatrix();
       noLights();
-      fill(255, flashAlpha);
-      rect(-width/2, -height/2, width, height);
+      fill(255, flashWhiteTransparency);
+      rect(-width / 2, -height / 2, width, height);
     pop();
 
+    // Crea le mongolfiere e muovi la telecamera in centro
     finalBaloons = true;
     camera(0, 0, 0,
-          0, 0, -300,
-          0, 1, 0);
+           0, 0, -300,
+           0, 1, 0);
 
-    // hold at 255 for flashHold seconds, then fade over flashFadeDuration
-    if (flashTimer > flashHold) {
-      // time since fade started
-      let t = flashTimer - flashHold;
-      // linear fade 255→0 over flashFadeDuration
-      flashAlpha = max(255 * (1 - t/flashFadeDuration), 0);
 
-      if (flashAlpha <= 0) {
+    flashTimer += dt;
+    // mantieni a 255 per flashDuration secondi, poi svanisce in flashFadeDuration
+    if (flashTimer > flashDuration) {
+      // tempo trascorso dallo start del fade
+      let t = flashTimer - flashDuration;
+      // fade lineare da 255 a 0 su flashFadeDuration
+      flashWhiteTransparency = max(255 * (1 - t / flashFadeDuration), 0);
+
+      if (flashWhiteTransparency <= 0) {
         drawingContext.enable(drawingContext.DEPTH_TEST);
         flashActive = false;
-        flashAlpha  = 0;
+        flashWhiteTransparency = 0;
       }
     }
   }
 
-  if (!flashActive && splitMoon) {
+  // Dopo il flash, abilita freeMovement
+  if (!flashActive && moonExploded) {
     cameraTimer += dt;
     if (cameraTimer > cameraHold) {
       freeMovement = true;
@@ -517,99 +408,77 @@ function draw() {
 
 
 
-// Call this from draw() wherever you need the balloon
+// Funzione per disegnare il pallone aerostatico
 function drawHotAirBalloon(x, y, z, scaleFactor = 1) {
   push();
-    // position & overall scale
+    // posizione nel 3D e grandezza
     translate(x, y, z);
     scale(scaleFactor);
 
-    // ► Balloon envelope (a slightly stretched sphere)
+    // Involucro del pallone (una sfera leggermente ovale)
     noStroke();
-    //fill(220, 60, 60);
     push();
       texture(air_baloon);
-      scale(1, 1.4, 1);      // stretch vertically
-      rotateX(-PI+0.1);
-      sphere(50, 32, 32);    // radius, detailX, detailY
+      scale(1, 1.4, 1);      // allunga sull'asse Y
+      rotateX(-PI + 0.1);     // ruota per fixare la texture
+      sphere(50, 32, 32);
     pop();
 
-    // ► Basket
+    // Cestino sotto
     push();
       texture(basket);
       translate(0, 100, 0);
       box(30, 20, 20);
     pop();
 
-    // ► Cables connecting basket to envelope
+    // Cavi che collegano il cestino all’involucro
     stroke(80);
     strokeWeight(1);
-    // front-left
+    // anteriore-sinistra
     line(10, 100,  10,  20, 0, 20);
-    // front-right
+    // anteriore-destra
     line(-10, 100,  10,  -20, 0, 20);
-    // back-left
+    // posteriore-sinistra
     line(10, 100,  -10,  20, 0, -20);
-    // back-right
+    // posteriore-destra
     line(-10, 100,  -10,  -20, 0, -20);
 
   pop();
 }
 
 
-
-
-
-/*function startBalloonArc() {
-  // compute midpoint between Earth (0,0,0) and Moon’s first target
-  balloonArcCenter = p5.Vector.add(
-    createVector(0,0,0),
-    moonTarget
-  ).div(2);
-
-
-  balloonArcAngle = atan2(
-    balloonPos.z - balloonArcCenter.z,
-    balloonPos.x - balloonArcCenter.x
-  );
-  balloonArcMoving = true;
-}*/
-
-
-
-function activateEvents(){
-  clickCount ++;
+// Gestione eventi musicali
+function activateEvents() {
+  clickCount++;
   switch (clickCount) {
     case 1:
-      starActive = true;
+      squishStars = true;
       break;
     case 2:
       speedUpEarth = true;
-      break;  
+      break;
     case 3:
-      //deIntox = 0.5;
-      starDone = true;
+      starExplosion = true;
       break;
     case 4:
       animateMoon = true;
       break;
     case 5:
       soloBaloon.moving = true;
-      balloonArcMoving = true;
       break;
     case 6:
       animateMoon2 = true;
-      animateMoon  = false;
-      // slow-mo factors
+      animateMoon = false;
       slowEarthSpeed = 0.02;
       slowMoonSpeed  = 0.5;
-
       break;
     default:
-      console.log('Nothing to do');
+      console.log('Niente da fare');
   }
 }
 
+
+// Gestione del click per iniziare e per pulire la scena/sfondo dopo collisione
 function mousePressed() {
   if (!started) {
     document.getElementById('clickHere').style.display = 'none';
@@ -618,7 +487,7 @@ function mousePressed() {
     loop();
   }
 
-  if(freeMovement){
+  if (freeMovement) {
     cleanBackground = true;
   }
 }
